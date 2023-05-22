@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>HTAWeb</title>
+    <hta:application id="HTAWebBrowser" applicationname="HTAWeb Browser" scroll="no" />
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            font-family: Arial, sans-serif;
+        }
+        #container {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+        #toolbar {
+            display: flex;
+            align-items: center;
+            background-color: #f0f0f0;
+            padding: 10px;
+        }
+        #addressBar {
+            flex-grow: 1;
+            margin-right: 10px;
+        }
+        #goButton {
+            cursor: pointer;
+        }
+        .tab {
+            display: none;
+        }
+        .tab.active {
+            display: block;
+            flex-grow: 1;
+            border: none;
+        }
+        .tab-title {
+            padding: 5px 10px;
+            cursor: pointer;
+            background-color: #e0e0e0;
+        }
+        .tab-title.active {
+            background-color: #f0f0f0;
+        }
+        #tabsContainer {
+            display: flex;
+        }
+        #tabsContainer .tab-title {
+            margin-right: 5px;
+        }
+        #statusBar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background-color: #f0f0f0;
+            padding: 10px;
+        }
+        #loadingIndicator {
+            width: 20px;
+            height: 20px;
+            border: 4px solid #666;
+            border-top: 4px solid #4CAF50;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-right: 5px;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+    <script language="VBScript">
+        Dim historyStack, currentIndex, tabs, currentTab
+
+        Sub Window_OnLoad
+            ' Initialize the browser frame
+            CreateNewTab "htaweb://about"
+            UpdateButtons()
+        End Sub
+
+        Sub CreateNewTab(url)
+            Dim tabFrame, tabTitle
+            Set tabFrame = document.createElement("iframe")
+            tabFrame.className = "tab"
+            tabFrame.name = "browserFrame"
+            tabFrame.onbeforenavigate = GetRef("ToggleLoadingIndicator")
+            tabFrame.onnavigatecomplete = GetRef("ToggleLoadingIndicator")
+            tabFrame.src = url
+            document.body.appendChild(tabFrame)
+
+            Set tabTitle = document.createElement("div")
+            tabTitle.className = "tab-title"
+            tabTitle.innerHTML = "New Tab"
+            tabTitle.onclick = GetRef("SwitchToTab")
+            document.getElementById("tabsContainer").appendChild(tabTitle)
+
+            If currentTab Is Nothing Then
+                Set currentTab = tabFrame
+                tabTitle.className = "tab-title active"
+            End If
+        End Sub
+
+        Sub SwitchToTab()
+            Dim clickedTabTitle, tabTitles, index
+            Set clickedTabTitle = window.event.srcElement
+            Set tabTitles = document.getElementsByClassName("tab-title")
+            For index = 0 To tabTitles.Length - 1
+                If tabTitles(index) Is clickedTabTitle Then
+                    currentTab.className = "tab"
+                    Set currentTab = tabs(index)
+                    currentTab.className = "tab active"
+                    currentIndex = index
+                    Exit For
+                End If
+            Next
+        End Sub
+
+        Sub CloseCurrentTab()
+            If UBound(tabs) = 0 Then
+                MsgBox "Cannot close the last tab."
+            Else
+                Dim tabTitles, index
+                currentTab.remove
+                Set currentTab = Nothing
+
+                Set tabTitles = document.getElementsByClassName("tab-title")
+                For index = 0 To tabTitles.Length - 1
+                    If tabTitles(index).className = "tab-title active" Then
+                        Set currentTab = tabs(index)
+                        currentTab.className = "tab active"
+                        currentIndex = index
+                        Exit For
+                    End If
+                Next
+
+                tabs = Filter(tabs, currentTab, False)
+                UpdateButtons()
+            End If
+        End Sub
+
+        Sub NavigateTo(url)
+            ' Handle custom URLs
+            If InStr(url, "htaweb://") = 1 Then
+                Select Case url
+                    Case "htaweb://about"
+                        ' Load about page
+                        currentTab.src = "about.html"
+                    Case "htaweb://settings"
+                        ' Load settings page
+                        currentTab.src = "settings.html"
+                    Case "htaweb://debug"
+                        ' Load debug page
+                        currentTab.src = "debug.html"
+                    Case "htaweb://flags"
+                        ' Load flags page
+                        currentTab.src = "flags.html"
+                    Case "htaweb://urls"
+                        ' Load urls page
+                        currentTab.src = "urls.html"
+                    Case Else
+                        ' Handle unrecognized custom URL
+                        MsgBox "Invalid URL: " & url
+                End Select
+            Else
+                ' Load regular URLs
+                currentTab.src = url
+            End If
+        End Sub
+
+        Sub GoBack()
+            currentTab.GoBack
+            UpdateButtons()
+        End Sub
+
+        Sub GoForward()
+            currentTab.GoForward
+            UpdateButtons()
+        End Sub
+
+        Sub Refresh()
+            currentTab.Refresh
+        End Sub
+
+        Sub GoToAddress()
+            Dim address
+            address = Trim(addressBar.value)
+            If Len(address) > 0 Then
+                NavigateTo(address)
+            End If
+        End Sub
+
+        Sub UpdateButtons()
+            backButton.disabled = Not currentTab.CanGoBack
+            forwardButton.disabled = Not currentTab.CanGoForward
+        End Sub
+
+        Sub ToggleLoadingIndicator()
+            If currentTab.ReadyState < 4 Then
+                loadingIndicator.style.display = "inline-block"
+            Else
+                loadingIndicator.style.display = "none"
+            End If
+        End Sub
+    </script>
+</head>
+<body>
+    <div id="container">
+        <div id="toolbar">
+            <button id="backButton" onclick="GoBack()">Back</button>
+            <button id="forwardButton" onclick="GoForward()">Forward</button>
+            <button id="refreshButton" onclick="Refresh()">Refresh</button>
+            <input type="text" id="addressBar" placeholder="Enter URL" />
+            <button id="goButton" onclick="GoToAddress()">Go</button>
+        </div>
+        <div id="tabsContainer"></div>
+        <div id="statusBar">
+            <div id="loadingIndicator"></div>
+            <span id="connectionStatus">Connected</span>
+        </div>
+    </div>
+    <script language="VBScript">
+        tabs = document.getElementsByClassName("tab")
+        currentIndex = 0
+        Set currentTab = tabs(currentIndex)
+    </script>
+</body>
+</html>
