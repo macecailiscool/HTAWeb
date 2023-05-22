@@ -5,7 +5,7 @@ int main() {
     const char* verbose_info[] = {
         "Setting up Internet Explorer runtime...",
         "Loading up HTA code...",
-        "Exiting Python loader script..."
+        "Exiting C loader script..."
     };
 
     int verbose_info_length = sizeof(verbose_info) / sizeof(verbose_info[0]);
